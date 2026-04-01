@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.local
+
+# User config (generated during setup)
+config/profile.md
+
+# Dependencies
+node_modules/
+
+# Runtime
+logs/
+temp/
+uploads/
+*.log
+
+# Credentials
+*.json.key
+*credentials*.json
+
+# Media
+*.mp4
+*.pdf
+
+# OS
+.DS_Store
+.idea/
+.vscode/

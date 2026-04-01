@@ -1,0 +1,20 @@
+{
+  "name": "beckett",
+  "version": "1.0.0",
+  "description": "Your personal AI assistant, powered by Claude",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/relay.ts",
+    "dev": "bun run --watch src/relay.ts",
+    "setup": "bun run setup/install.ts",
+    "setup:verify": "bun run setup/verify.ts",
+    "setup:launchd": "bun run setup/configure-launchd.ts",
+    "setup:services": "bun run setup/configure-services.ts",
+    "test:telegram": "bun run setup/test-telegram.ts",
+    "test:supabase": "bun run setup/test-supabase.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "grammy": "^1.21.1"
+  }
+}
