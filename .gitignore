@@ -22,6 +22,10 @@ uploads/
 *.mp4
 *.pdf
 
+# Personal job-application artifacts (never committed to public base)
+config/career/
+drafts/
+
 # OS
 .DS_Store
 .idea/
