@@ -11,6 +11,7 @@ import { Bot, Context, InputFile } from "grammy";
 import { spawn } from "bun";
 import { writeFile, mkdir, readFile, unlink } from "fs/promises";
 import { join, dirname } from "path";
+import { childClaudeEnv } from "./claude-env.ts";
 import { processMemoryIntents } from "./memory.ts";
 import {
   supabase,
@@ -33,8 +34,8 @@ const RELAY_DIR = process.env.RELAY_DIR || join(process.env.HOME || "~", ".claud
 
 // Model routing
 const MODELS = {
-  opus: "claude-opus-4-6",
-  sonnet: "claude-sonnet-4-6",
+  opus: "claude-opus-4-8",
+  sonnet: "claude-sonnet-5",
   haiku: "claude-haiku-4-5-20251001",
 } as const;
 
@@ -52,8 +53,8 @@ function pickModel(text: string): string {
 }
 
 function modelLabel(modelId: string): string {
-  if (modelId.includes("opus")) return "Claude Opus 4.6";
-  if (modelId.includes("sonnet")) return "Claude Sonnet 4.6";
+  if (modelId.includes("opus")) return "Claude Opus 4.8";
+  if (modelId.includes("sonnet")) return "Claude Sonnet 5";
   if (modelId.includes("haiku")) return "Claude Haiku 4.5";
   return modelId;
 }
@@ -206,6 +207,14 @@ async function callClaude(
   // Model selection
   if (options?.model) {
     args.push("--model", options.model);
+
+    // Adaptive-thinking-only models (Opus 4.7+, Sonnet 5) reject
+    // thinking.type.enabled (the CLI default). Force adaptive thinking via
+    // --effort, which maps to thinking.type.adaptive + effort. Haiku 4.5 still
+    // uses extended thinking and errors on --effort, so it is excluded.
+    if (options.model.includes("opus") || options.model.includes("sonnet-5")) {
+      args.push("--effort", "high");
+    }
   }
 
   // Resume previous session if available and requested
@@ -223,7 +232,10 @@ async function callClaude(
       stdout: "pipe",
       stderr: "pipe",
       cwd: PROJECT_DIR || undefined,
-      env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== "CLAUDECODE")),
+      // childClaudeEnv strips leaked Claude-Code context (CLAUDE_CODE_*,
+      // TMPDIR, AI_AGENT, ...), CLAUDECODE, and ANTHROPIC_API_KEY. See
+      // src/claude-env.ts for why each matters.
+      env: childClaudeEnv(),
     });
 
     const output = await new Response(proc.stdout).text();
