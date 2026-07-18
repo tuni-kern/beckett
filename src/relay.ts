@@ -12,6 +12,8 @@ import { spawn } from "bun";
 import { writeFile, mkdir, readFile, unlink } from "fs/promises";
 import { join, dirname } from "path";
 import { childClaudeEnv } from "./claude-env.ts";
+import { parseClaudeOutput } from "./claude-output.ts";
+import { sweepOldUploads } from "./uploads.ts";
 import { processMemoryIntents } from "./memory.ts";
 import {
   supabase,
@@ -62,6 +64,9 @@ function modelLabel(modelId: string): string {
 // Directories
 const TEMP_DIR = join(RELAY_DIR, "temp");
 const UPLOADS_DIR = join(RELAY_DIR, "uploads");
+
+// Uploads are kept for follow-up questions and swept by age (see uploads.ts)
+const UPLOAD_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
 // Session tracking for conversation continuity
 const SESSION_FILE = join(RELAY_DIR, "session.json");
@@ -222,7 +227,10 @@ async function callClaude(
     args.push("--resume", session.sessionId);
   }
 
-  args.push("--output-format", "text");
+  // JSON output is required to capture session_id for --resume; text mode
+  // prints only the response body, so session continuity silently never
+  // worked (the old "Session ID:" regex never matched anything).
+  args.push("--output-format", "json");
 
   const modelInfo = options?.model || "default";
   console.log(`Calling Claude (${modelInfo}): ${prompt.substring(0, 50)}...`);
@@ -248,15 +256,20 @@ async function callClaude(
       return `Error: ${stderr || "Claude exited with code " + exitCode}`;
     }
 
-    // Extract session ID from output if present (for --resume)
-    const sessionMatch = output.match(/Session ID: ([a-f0-9-]+)/i);
-    if (sessionMatch) {
-      session.sessionId = sessionMatch[1];
+    const parsed = parseClaudeOutput(output);
+
+    if (parsed.isError) {
+      console.error("Claude reported error result:", parsed.text.slice(0, 500));
+      return `Error: ${parsed.text || "Claude reported an error"}`;
+    }
+
+    if (parsed.sessionId) {
+      session.sessionId = parsed.sessionId;
       session.lastActivity = new Date().toISOString();
       await saveSession(session);
     }
 
-    return output.trim();
+    return parsed.text;
   } catch (error) {
     console.error("Spawn error:", error);
     return `Error: Could not run Claude CLI`;
@@ -336,13 +349,15 @@ bot.on("message:photo", async (ctx) => {
     const buffer = await response.arrayBuffer();
     await writeFile(filePath, Buffer.from(buffer));
 
-    const prompt = `[Image: ${filePath}]\n\n${caption}`;
+    // Keep the file for follow-up questions; sweep old uploads by age
+    // instead of unlinking immediately.
+    await sweepOldUploads(UPLOADS_DIR, UPLOAD_MAX_AGE_MS);
 
-    await saveMessage("user", `[Image]: ${caption}`);
+    const prompt = `The user sent an image. Use your Read tool to view it at: ${filePath}\n\nThen respond to their message: ${caption}`;
+
+    await saveMessage("user", `[Image saved at ${filePath}]: ${caption}`);
 
     const claudeResponse = await callClaude(prompt, { resume: true, model: MODELS.sonnet });
-
-    await unlink(filePath).catch(() => {});
 
     const cleanResponse = await processMemoryIntents(supabase, claudeResponse);
     await saveMessage("assistant", cleanResponse);
@@ -373,13 +388,16 @@ bot.on("message:document", async (ctx) => {
     const buffer = await response.arrayBuffer();
     await writeFile(filePath, Buffer.from(buffer));
 
-    const prompt = `[File: ${filePath}]\n\n${caption}`;
+    // Keep the file for follow-up questions ("explain this document") — the
+    // resumed session and the path in saved history both depend on it still
+    // existing. Old uploads are swept by age instead of unlinked immediately.
+    await sweepOldUploads(UPLOADS_DIR, UPLOAD_MAX_AGE_MS);
 
-    await saveMessage("user", `[Document: ${doc.file_name}]: ${caption}`);
+    const prompt = `The user sent a document. Use your Read tool to view it at: ${filePath}\n\nThen respond to their message: ${caption}`;
+
+    await saveMessage("user", `[Document: ${doc.file_name} saved at ${filePath}]: ${caption}`);
 
     const claudeResponse = await callClaude(prompt, { resume: true, model: MODELS.sonnet });
-
-    await unlink(filePath).catch(() => {});
 
     const cleanResponse = await processMemoryIntents(supabase, claudeResponse);
     await saveMessage("assistant", cleanResponse);

@@ -189,10 +189,12 @@ export function buildPrompt(
   if (USER_NAME) parts.push(`You are speaking with ${USER_NAME}.`);
   parts.push(`Current time: ${timeStr}`);
   if (profileContext) parts.push(`\nProfile:\n${profileContext}`);
-  if (memoryContext) parts.push(`\n${memoryContext}`);
-  if (recentHistory) parts.push(`\n${recentHistory}`);
-  if (relevantContext) parts.push(`\n${relevantContext}`);
 
+  // Instruction blocks go BEFORE conversation history so that deictic user
+  // references ("this document", "that file") bind to conversation content,
+  // not to these blocks. With this scaffolding adjacent to the user message,
+  // "explain this document" after a PDF analysis got the SAFETY RULE/MEMORY
+  // blocks described as "the document".
   parts.push(
     "\nSAFETY RULE:" +
       "\nNEVER make changes to repositories, websites, files, or any live systems without explicitly asking the user for confirmation first." +
@@ -208,6 +210,10 @@ export function buildPrompt(
       "\n[GOAL: goal text | DEADLINE: optional date]" +
       "\n[DONE: search text for completed goal]"
   );
+
+  if (memoryContext) parts.push(`\n${memoryContext}`);
+  if (relevantContext) parts.push(`\n${relevantContext}`);
+  if (recentHistory) parts.push(`\n${recentHistory}`);
 
   parts.push(`\nUser: ${userMessage}`);
 
