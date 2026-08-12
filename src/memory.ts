@@ -150,8 +150,7 @@ export async function getRecentHistory(
 }
 
 /**
- * Semantic search for relevant past conversations via conversation_chunks.
- * Falls back to individual message search if no chunks exist yet.
+ * Semantic search for relevant past messages.
  * The search Edge Function handles embedding generation (OpenAI key stays in Supabase).
  */
 export async function getRelevantContext(
@@ -161,27 +160,6 @@ export async function getRelevantContext(
   if (!supabase) return "";
 
   try {
-    // Primary: search conversation chunks (grouped Q/A pairs with context headers)
-    const { data: chunkData, error: chunkError } =
-      await supabase.functions.invoke("search", {
-        body: { query, match_count: 5, table: "conversation_chunks" },
-      });
-
-    if (!chunkError && chunkData?.length) {
-      return (
-        "RELEVANT PAST CONVERSATIONS:\n" +
-        chunkData
-          .map((c: any) => {
-            const header = c.topic_summary
-              ? `[${new Date(c.timestamp_start).toLocaleDateString()}] ${c.topic_summary}`
-              : `[${new Date(c.timestamp_start).toLocaleDateString()}]`;
-            return `${header}\n${c.content}`;
-          })
-          .join("\n---\n")
-      );
-    }
-
-    // Fallback: search individual messages (for pre-chunking data)
     const { data, error } = await supabase.functions.invoke("search", {
       body: { query, match_count: 5, table: "messages" },
     });

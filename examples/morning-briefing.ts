@@ -372,7 +372,7 @@ Output ONLY the image prompt itself. No intro text, no variations, no explanatio
   const cleanEnv = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => key !== "CLAUDECODE")
   );
-  const result = spawnSync("/root/.local/bin/claude", ["-p", prompt], {
+  const result = spawnSync(process.env.CLAUDE_PATH || "claude", ["-p", prompt], {
     timeout: 60000,
     maxBuffer: 1024 * 1024 * 10,
     encoding: "utf8",
@@ -477,7 +477,7 @@ Write the article now.`;
   const cleanEnv = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => key !== "CLAUDECODE")
   );
-  const result = spawnSync("/root/.local/bin/claude", ["-p", prompt], {
+  const result = spawnSync(process.env.CLAUDE_PATH || "claude", ["-p", prompt], {
     timeout: 90000,
     maxBuffer: 1024 * 1024 * 10,
     encoding: "utf8",
@@ -525,7 +525,9 @@ async function buildBriefing(): Promise<string> {
   const dayOfWeek = now.getDay();
   const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
   if (isWeekday) {
-    sections.push(`📍 **Today's Constraints**\n- 5:00-10:00 AM: Uber\n- 10:00 AM-2:00 PM: Vending Ops\n- 2:00-3:30 PM: Kid Pickup\n- 3:30 PM+: Free (family/gym/work)\n`);
+    // Customize this block with your own fixed commitments (or pull them
+    // from a calendar integration).
+    sections.push(`📍 **Today's Constraints**\n- 9:00-11:00 AM: Deep work block\n- 12:00 PM: Lunch + walk\n- 3:00 PM: School run\n- 4:00 PM+: Open\n`);
   }
 
   // Weather (optional)

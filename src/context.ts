@@ -25,56 +25,6 @@ export const supabase: SupabaseClient | null =
     ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
     : null;
 
-// Session boundary detection for conversation chunking
-const SESSION_GAP_MS = 2 * 60 * 60 * 1000; // 2 hours
-const FORCE_CLOSE_MS = 24 * 60 * 60 * 1000; // 24 hours
-let lastMessageTime: string | null = null;
-let sessionStartTime: string | null = null;
-
-/**
- * Initialize session tracking from the most recent message in DB.
- * Called once on startup so we know where the last session left off.
- */
-async function initSessionTracking(): Promise<void> {
-  if (!supabase || lastMessageTime !== null) return;
-  try {
-    const { data } = await supabase
-      .from("messages")
-      .select("created_at")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (data?.[0]) {
-      lastMessageTime = data[0].created_at;
-      sessionStartTime = lastMessageTime;
-    }
-  } catch {
-    // Non-critical — we'll pick it up on first message
-  }
-}
-
-/**
- * Trigger chunking of a completed session via the Edge Function.
- * Fire-and-forget — does not block message handling.
- */
-function triggerSessionChunking(sessionStart: string, sessionEnd: string): void {
-  if (!supabase) return;
-  console.log(`[chunking] Session boundary detected. Chunking ${sessionStart} → ${sessionEnd}`);
-  supabase.functions
-    .invoke("chunk-conversation", {
-      body: { session_start: sessionStart, session_end: sessionEnd },
-    })
-    .then(({ data, error }) => {
-      if (error) {
-        console.error("[chunking] Edge Function error:", error);
-      } else {
-        console.log("[chunking] Result:", JSON.stringify(data));
-      }
-    })
-    .catch((err) => {
-      console.error("[chunking] Invocation failed:", err);
-    });
-}
-
 export async function saveMessage(
   role: string,
   content: string,
@@ -82,38 +32,13 @@ export async function saveMessage(
 ): Promise<void> {
   if (!supabase) return;
 
-  // Initialize session tracking on first call
-  await initSessionTracking();
-
-  const now = new Date().toISOString();
-
   try {
-    // Check for session boundary before saving
-    if (lastMessageTime) {
-      const gap = Date.now() - new Date(lastMessageTime).getTime();
-
-      if (gap >= SESSION_GAP_MS && sessionStartTime) {
-        // Session gap detected — chunk the previous session
-        triggerSessionChunking(sessionStartTime, lastMessageTime);
-        sessionStartTime = now; // new session starts with this message
-      } else if (gap >= FORCE_CLOSE_MS && sessionStartTime) {
-        // Force-close: been over 24 hours
-        triggerSessionChunking(sessionStartTime, lastMessageTime);
-        sessionStartTime = now;
-      }
-    } else {
-      // First message ever
-      sessionStartTime = now;
-    }
-
     await supabase.from("messages").insert({
       role,
       content,
       channel: metadata?.channel || "telegram",
       metadata: metadata || {},
     });
-
-    lastMessageTime = now;
   } catch (error) {
     console.error("Supabase save error:", error);
   }
