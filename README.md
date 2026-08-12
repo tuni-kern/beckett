@@ -9,6 +9,7 @@ Beckett connects your Telegram to Claude through a persistent relay with semanti
 - **Persistent memory** — Beckett remembers facts, goals, and context across every conversation
 - **Semantic search** — Finds relevant past conversations automatically using vector embeddings
 - **Personalized to you** — Knows your name, timezone, work, schedule, and communication style
+- **Understands voice notes** — Send a voice message, it transcribes and replies (Groq or local Whisper)
 - **Runs 24/7** — Set it up as a background service and forget about it
 - **Guided setup** — Claude Code walks you through every step. No config files to edit manually.
 
@@ -61,6 +62,7 @@ Memory works automatically. Claude extracts facts and goals from conversations a
 | `src/relay.ts` | Core Telegram relay — routes messages through Claude |
 | `src/context.ts` | Builds context from Supabase (history, memory, profile) |
 | `src/memory.ts` | Extracts and stores facts, goals, and completions |
+| `src/transcribe.ts` | Voice note transcription — Groq cloud or local Whisper |
 | `db/schema.sql` | PostgreSQL schema for messages, memory, and logs |
 | `supabase/functions/embed/` | Auto-generates vector embeddings on insert |
 | `supabase/functions/search/` | Semantic search endpoint |
@@ -71,7 +73,7 @@ Memory works automatically. Claude extracts facts and goals from conversations a
 
 Beckett is the foundation. The full version adds:
 
-- **Voice messages** — Talk to your assistant, get voice responses back
+- **Voice replies** — Your assistant talks back with a real voice
 - **Phone calls** — Give your assistant a real phone number via Vapi
 - **Proactive outreach** — Smart check-ins that only message you when it matters
 - **Real integrations** — Gmail, Google Calendar, task management connected via MCP

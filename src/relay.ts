@@ -15,6 +15,7 @@ import { childClaudeEnv } from "./claude-env.ts";
 import { parseClaudeOutput } from "./claude-output.ts";
 import { sweepOldUploads } from "./uploads.ts";
 import { processMemoryIntents } from "./memory.ts";
+import { transcribe } from "./transcribe.ts";
 import {
   supabase,
   saveMessage,
@@ -320,12 +321,62 @@ bot.on("message:text", async (ctx) => {
   await sendResponse(ctx, response);
 });
 
-// Voice messages — placeholder for V2 (voice transcription add-on)
+// Voice messages — transcribed via Groq or local Whisper (Phase 7 in CLAUDE.md)
 bot.on("message:voice", async (ctx) => {
-  await ctx.reply(
-    "Voice transcription is not set up yet. " +
-      "See the setup guide to enable voice support (Groq or local Whisper)."
-  );
+  const voice = ctx.message.voice;
+  console.log(`Voice message: ${voice.duration}s`);
+  await ctx.replyWithChatAction("typing");
+
+  if (!process.env.VOICE_PROVIDER) {
+    await ctx.reply(
+      "Voice transcription is not set up yet. " +
+        "Run the setup again and choose a voice provider (Groq or local Whisper)."
+    );
+    return;
+  }
+
+  let transcription = "";
+  try {
+    const file = await ctx.getFile();
+    const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const response = await fetch(url);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    transcription = (await transcribe(buffer)) || "";
+  } catch (err) {
+    console.error("Transcription error:", err);
+  }
+
+  if (!transcription) {
+    await ctx.reply("Could not transcribe voice message.");
+    return;
+  }
+
+  // From here, a voice note is just a text message
+  await saveMessage("user", transcription);
+
+  let response = "";
+  try {
+    const { recentHistory, relevantContext, memoryContext } =
+      await gatherContext(transcription, 20);
+
+    const model = pickModel(transcription);
+    const enrichedPrompt = buildPrompt(
+      transcription,
+      relevantContext,
+      memoryContext,
+      recentHistory,
+      modelLabel(model)
+    );
+    const rawResponse = await callClaude(enrichedPrompt, { resume: true, model });
+
+    response = await processMemoryIntents(supabase, rawResponse);
+  } catch (err: any) {
+    console.error("Voice message handling error:", err);
+    response = "Sorry, something went wrong.";
+  }
+
+  await saveMessage("assistant", response);
+  await sendResponse(ctx, response);
 });
 
 // Photos/Images

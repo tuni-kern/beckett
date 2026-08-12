@@ -196,6 +196,41 @@ bun run setup:services -- --service all
 
 ---
 
+## Phase 7: Voice Transcription (Optional, ~5 min)
+
+Lets the bot understand voice messages sent on Telegram.
+
+**Ask the user which option they prefer:**
+
+### Option A: Groq (Recommended — free cloud API)
+- State-of-the-art Whisper model, sub-second speed
+- Free tier: thousands of transcriptions per day, no credit card
+- Requires internet connection
+
+**What to tell them:**
+1. Go to console.groq.com and create a free account
+2. Go to API Keys, create a new key, copy it
+
+**What you do:**
+1. Save `VOICE_PROVIDER=groq` and `GROQ_API_KEY` to `.env`
+2. Run `bun run test:voice` to verify
+
+### Option B: Local Whisper (offline, private)
+- Runs entirely on their computer, no account needed
+- Requires ffmpeg and whisper-cpp installed
+- First run needs a 142MB model file
+
+**What you do:**
+1. Check ffmpeg: `ffmpeg -version` (install: `brew install ffmpeg` or `apt install ffmpeg`)
+2. Check whisper-cpp: `whisper-cpp --help` (install: `brew install whisper-cpp` or build from source)
+3. Download model: `curl -L -o ~/whisper-models/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin`
+4. Save `VOICE_PROVIDER=local`, `WHISPER_BINARY`, `WHISPER_MODEL_PATH` to `.env`
+5. Run `bun run test:voice` to verify
+
+**Done when:** `bun run test:voice` passes and a voice note sent to the bot gets a reply.
+
+---
+
 ## After Setup
 
 Run the full health check:
@@ -214,7 +249,7 @@ Summarize what was set up and what is running. Remind the user:
 
 This open-source version covers the essentials. The full version adds:
 
-- **Voice & Phone Calls** — Send voice messages, get voice responses back. Give your assistant a real phone number.
+- **Voice Replies & Phone Calls** — Your assistant speaks back with a real voice, and calls your phone when something is urgent.
 - **Real Integrations** — Gmail, Google Calendar, task management connected via MCP. Smart check-ins pull real data.
 - **Multi-Agent Routing** — Specialized agents for research, content, finance, strategy. Route messages through Telegram forum topics.
 - **VPS Deployment** — Your bot on a cloud server that never sleeps. $2-5/month.
