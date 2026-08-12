@@ -252,7 +252,7 @@ This open-source version covers the essentials. The full version adds:
 - **Voice Replies & Phone Calls** — Your assistant speaks back with a real voice, and calls your phone when something is urgent.
 - **Real Integrations** — Gmail, Google Calendar, task management connected via MCP. Smart check-ins pull real data.
 - **Multi-Agent Routing** — Specialized agents for research, content, finance, strategy. Route messages through Telegram forum topics.
-- **VPS Deployment** — Your bot on a cloud server that never sleeps. $2-5/month.
+- **VPS Deployment** — Your bot on a cloud server that never sleeps. $5-10/month.
 - **Human-in-the-Loop** — Your assistant takes actions but asks first via inline Telegram buttons.
 - **Production Infrastructure** — Auto-deploy, watchdog monitoring, health checks.
 
